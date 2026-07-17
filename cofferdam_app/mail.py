@@ -14,42 +14,12 @@ from typing import Any
 
 import frappe
 
-from cofferdam import Policy, load_policy
-from cofferdam.errors import CofferdamError, PolicyFileNotFoundError
 from cofferdam.mail import check_recipient, decorate_email
 from cofferdam.models import Environment
 
-_policy_cache: dict[str, Policy] = {}
+from cofferdam_app.policy import get_policy, policy_path
+
 _log = logging.getLogger("cofferdam_app")
-
-
-def _get_policy(site: str) -> Policy | None:
-    """Load and cache the cofferdam policy for *site* (BR-EMAIL-001).
-
-    Returns None on load failure; caller is responsible for fail-closed action.
-    Caching is per-process; call reload_policy() to evict (Q6 / ADR-0010).
-    """
-    if site in _policy_cache:
-        return _policy_cache[site]
-    path = f"sites/{site}/environment_policy.toml"
-    try:
-        policy = load_policy(path)
-    except PolicyFileNotFoundError:
-        _log.warning("cofferdam: no policy file at %s — email will be blocked", path)
-        return None
-    except CofferdamError as exc:
-        _log.error("cofferdam: policy load failed for %s: %s", site, exc)
-        return None
-    _policy_cache[site] = policy
-    return policy
-
-
-def reload_policy(site: str | None = None) -> None:
-    """Evict the cached policy for *site* (or all sites) to force a reload on next use."""
-    if site is None:
-        _policy_cache.clear()
-    else:
-        _policy_cache.pop(site, None)
 
 
 def before_insert_email_queue(doc: Any, method: Any = None) -> None:  # noqa: ANN401
@@ -61,13 +31,12 @@ def before_insert_email_queue(doc: Any, method: Any = None) -> None:  # noqa: AN
     BR-EMAIL-001..008, BR-EMAIL-DECORATE-001..006.
     """
     site: str = frappe.local.site
-    policy = _get_policy(site)
+    policy = get_policy(site)
 
     if policy is None:
-        path = f"sites/{site}/environment_policy.toml"
         frappe.throw(
             f"cofferdam: No policy file found. "
-            f"Create {path} to configure outbound email for this environment."
+            f"Create {policy_path(site)} to configure outbound email for this environment."
         )
         return  # frappe.throw() always raises; satisfies mypy's narrowing
 
