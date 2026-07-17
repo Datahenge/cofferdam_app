@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "cofferdam-app"
 version = "0.1.0"
 description = "Frappe app that routes native outbound calls through the cofferdam policy engine"
-requires-python = ">=3.14"
+requires-python = ">=3.14,<3.15"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Brian Pond", email = "brian@datahenge.com" }]
@@ -71,6 +71,10 @@ select = ["E", "F", "I", "B", "UP", "S", "N", "RUF"]
 python_version = "3.14"
 strict = true
 files = ["cofferdam_app"]
+
+[[tool.mypy.overrides]]
+module = ["frappe", "frappe.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
