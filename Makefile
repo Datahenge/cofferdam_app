@@ -1,6 +1,6 @@
 PYTHON   := python3.14
 COFFERDAM_SRC := ../cofferdam/src
-PKG_DIR  := /tmp/cofferdam-app-dev-pkgs
+PKG_DIR  := /tmp/cofferdam_app-dev-pkgs
 PYPATH   := $(PKG_DIR):$(COFFERDAM_SRC):$(CURDIR)
 
 .PHONY: install test lint typecheck check
