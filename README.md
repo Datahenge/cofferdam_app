@@ -33,9 +33,6 @@ bench get-app https://github.com/datahenge/cofferdam_app --branch version-16
 bench --site <your-site> install-app cofferdam_app
 ```
 
-`bench install-app` pulls `cofferdam` from PyPI automatically via
-`requirements.txt`. No separate `pip install` is needed.
-
 ---
 
 ## Configuration
