@@ -6,6 +6,9 @@ BR-TEST-004: runs without a Frappe bench.
 
 from __future__ import annotations
 
+from email import message_from_string
+from email import policy as email_policy
+from email.message import EmailMessage
 from types import SimpleNamespace
 from typing import Any
 
@@ -77,6 +80,26 @@ class _EmailDoc:
     @property
     def recipient_list(self) -> list[str]:
         return [row.recipient for row in self._rows]
+
+
+def _mime(subject: str, body: str, subtype: str = "plain") -> str:
+    """Build a real MIME document the way Frappe hands one to the Email Queue.
+
+    Decoration operates on ``doc.message`` as an assembled MIME string (subject
+    is a header, body lives in a part), so tests must feed one rather than plain
+    strings.
+    """
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = "noreply@app.test"
+    msg["To"] = "a@x.com"
+    msg.set_content(body, subtype=subtype)
+    return msg.as_string()
+
+
+def _parse(raw: str) -> Any:
+    """Re-parse a serialized MIME string for assertions on the decorated result."""
+    return message_from_string(raw, policy=email_policy.SMTP)
 
 
 # ---------------------------------------------------------------------------
@@ -170,47 +193,56 @@ def test_allow_internal_blocks_external_domain(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_subject_decorated_in_staging(monkeypatch: pytest.MonkeyPatch) -> None:
-    """BR-EMAIL-DECORATE-003: subject gets environment prefix in non-production."""
+    """BR-EMAIL-DECORATE-003: the MIME Subject header gets an environment prefix."""
     monkeypatch.setattr("cofferdam_app.mail.get_policy", lambda _site: _policy(_STAGING_SINK))
-    doc = _EmailDoc(["a@x.com"], subject="Weekly Report", message="Hello.")
+    doc = _EmailDoc(["a@x.com"], message=_mime("Weekly Report", "Hello."))
     before_insert_email_queue(doc)
-    assert doc.subject == "STAGING - Weekly Report"
+    assert _parse(doc.message)["Subject"] == "STAGING - Weekly Report"
 
 
 def test_body_decorated_in_staging(monkeypatch: pytest.MonkeyPatch) -> None:
-    """BR-EMAIL-DECORATE-006: plain-text body gets environment notice prepended."""
+    """BR-EMAIL-DECORATE-006: plain-text body part gets environment notice prepended."""
     monkeypatch.setattr("cofferdam_app.mail.get_policy", lambda _site: _policy(_STAGING_SINK))
-    doc = _EmailDoc(["a@x.com"], subject="Hi", message="Original body.")
+    doc = _EmailDoc(["a@x.com"], message=_mime("Hi", "Original body."))
     before_insert_email_queue(doc)
-    assert "[STAGING]" in doc.message
-    assert "Original body." in doc.message
+    body = _parse(doc.message).get_content()
+    assert "[STAGING]" in body
+    assert "Original body." in body
 
 
 def test_html_body_decorated_in_staging(monkeypatch: pytest.MonkeyPatch) -> None:
-    """BR-EMAIL-DECORATE-005: HTML body gets banner div injected."""
+    """BR-EMAIL-DECORATE-005: HTML body part gets a banner div injected."""
     monkeypatch.setattr("cofferdam_app.mail.get_policy", lambda _site: _policy(_STAGING_SINK))
     html = "<html><body><p>Hello</p></body></html>"
-    doc = _EmailDoc(["a@x.com"], subject="Hi", message=html)
+    doc = _EmailDoc(["a@x.com"], message=_mime("Hi", html, subtype="html"))
     before_insert_email_queue(doc)
-    assert "<div" in doc.message
-    assert "STAGING" in doc.message
+    body = _parse(doc.message).get_content()
+    assert "<div" in body
+    assert "STAGING" in body
+    assert "<p>Hello</p>" in body
 
 
 def test_no_decoration_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    """BR-EMAIL-DECORATE-002: decorate=false suppresses all decoration."""
+    """BR-EMAIL-DECORATE-002: decorate=false leaves the MIME document untouched."""
     monkeypatch.setattr(
         "cofferdam_app.mail.get_policy", lambda _site: _policy(_STAGING_DECORATE_OFF)
     )
-    doc = _EmailDoc(["a@x.com"], subject="Report", message="Hello.")
+    raw = _mime("Report", "Hello.")
+    doc = _EmailDoc(["a@x.com"], message=raw)
     before_insert_email_queue(doc)
-    assert doc.subject == "Report"
-    assert doc.message == "Hello."
+    assert doc.message == raw
+    out = _parse(doc.message)
+    assert out["Subject"] == "Report"
+    assert "[STAGING]" not in out.get_content()
 
 
 def test_production_receives_no_decoration(monkeypatch: pytest.MonkeyPatch) -> None:
-    """BR-EMAIL-DECORATE-001: production pass-through leaves subject and body unchanged."""
+    """BR-EMAIL-DECORATE-001: production pass-through leaves the MIME document unchanged."""
     monkeypatch.setattr("cofferdam_app.mail.get_policy", lambda _site: _policy(_PRODUCTION))
-    doc = _EmailDoc(["a@x.com"], subject="Invoice", message="<html><body>Hi</body></html>")
+    raw = _mime("Invoice", "<html><body>Hi</body></html>", subtype="html")
+    doc = _EmailDoc(["a@x.com"], message=raw)
     before_insert_email_queue(doc)
-    assert doc.subject == "Invoice"
-    assert "<div" not in doc.message
+    assert doc.message == raw
+    out = _parse(doc.message)
+    assert out["Subject"] == "Invoice"
+    assert "<div" not in out.get_content()
