@@ -5,6 +5,12 @@ app_description = "Routes Frappe outbound calls through the cofferdam policy eng
 app_email = "brian@datahenge.com"
 app_license = "Apache-2.0"
 
+# Desk integration (Workspace + Workspace Sidebar + Desktop Icon tile) ships as
+# committed JSON files: cofferdam_app/workspace/cofferdam/, workspace_sidebar/,
+# and desktop_icon/. bench migrate syncs all three — no after_install hook or
+# create_desktop_icons_from_workspace() call is needed. See docs and the
+# project's Lessons_Learned_Frappe_Desk notes.
+
 # BR-EMAIL-001..008, BR-EMAIL-DECORATE-001..006
 # BR-DECISION-003..010 (webhooks)
 doc_events = {

@@ -1,0 +1,17 @@
+{
+ "app": "cofferdam_app",
+ "bg_color": "gray",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "setting-gear",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Cofferdam",
+ "link_to": "Cofferdam",
+ "link_type": "Workspace Sidebar",
+ "name": "Cofferdam",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}
