@@ -14,7 +14,7 @@ library in order to report that fact. All library access goes through
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import frappe
@@ -25,7 +25,11 @@ _ROLE = "System Manager"
 # wired in hooks.py; the rest are planned.
 _COVERAGE: list[dict[str, Any]] = [
     {"path": "frappe.sendmail() → Email Queue", "intercepted": True, "note": "before_insert hook"},
-    {"path": "Frappe Webhook → Webhook Request Log", "intercepted": True, "note": "before_insert hook (confirmed on v16)"},
+    {
+        "path": "Frappe Webhook → Webhook Request Log",
+        "intercepted": True,
+        "note": "before_insert hook (confirmed on v16)",
+    },
     {"path": "ERPNext Slack Webhook", "intercepted": False, "note": "Planned"},
     {"path": "ERPNext payment gateways", "intercepted": False, "note": "Planned"},
     {"path": "ERPNext shipping carriers", "intercepted": False, "note": "Planned"},
@@ -42,6 +46,7 @@ def _load_library() -> tuple[dict[str, Any] | None, str | None]:
     """
     try:
         import cofferdam
+
         from cofferdam_app import policy as app_policy
     except ImportError as exc:
         return None, f"cofferdam library not importable: {exc}"
@@ -107,7 +112,7 @@ def get_data() -> dict[str, Any]:
     if os.path.exists(abs_path):
         data["policy_file_exists"] = True
         mtime = os.stat(abs_path).st_mtime
-        data["policy_file_mtime"] = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+        data["policy_file_mtime"] = datetime.fromtimestamp(mtime, tz=UTC).isoformat()
     else:
         errors.append(f"policy file not found at {data['policy_file_path']}")
         return data
@@ -116,7 +121,7 @@ def get_data() -> dict[str, Any]:
     # status above is reported separately and truthfully.
     try:
         policy = cofferdam.load_policy(abs_path)
-    except Exception as exc:  # noqa: BLE001 - surface any load/validation error
+    except Exception as exc:
         errors.append(f"policy load failed: {exc}")
         return data
 
@@ -217,7 +222,7 @@ def validate_config() -> dict[str, Any]:
 
     try:
         cofferdam.load_policy(abs_path, strict=True)
-    except Exception as exc:  # noqa: BLE001 - report any validation error to the pane
+    except Exception as exc:
         problems = list(getattr(exc, "problems", None) or [])
         return {"ok": False, "message": f"Validation failed: {exc}", "problems": problems}
 
@@ -262,13 +267,19 @@ def dry_run_email(recipient: str) -> dict[str, Any]:
             "redirect_to": None,
             "reason_code": "production_passthrough",
             "decorated_subject": None,
-            "message": f"PRODUCTION: email to {recipient} passes through unmodified (no interception).",
+            "message": (
+                f"PRODUCTION: email to {recipient} passes through "
+                "unmodified (no interception)."
+            ),
         }
 
     decision = check_recipient(policy, recipient=recipient)
     decorated_subject, _ = decorate_email("Test subject", "Test body", policy=policy)
     if not decision.allowed:
-        msg = f"BLOCKED: {recipient} (env={policy.environment.value}, reason={decision.reason_code})."
+        msg = (
+            f"BLOCKED: {recipient} (env={policy.environment.value}, "
+            f"reason={decision.reason_code})."
+        )
     elif decision.redirect_to:
         msg = f"REDIRECTED: {recipient} → {decision.redirect_to} (env={policy.environment.value})."
     else:
@@ -343,5 +354,8 @@ def dry_run_webhook(url: str) -> dict[str, Any]:
         "environment": policy.environment.value,
         "allowed": decision.allowed,
         "reason_code": decision.reason_code,
-        "message": f"{verdict}: {url} (host={host or '?'}, env={policy.environment.value}, reason={decision.reason_code}).",
+        "message": (
+            f"{verdict}: {url} (host={host or '?'}, "
+            f"env={policy.environment.value}, reason={decision.reason_code})."
+        ),
     }

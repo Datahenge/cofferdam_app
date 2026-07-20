@@ -10,9 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
 from cofferdam import loads_policy
-
 from cofferdam_app.mail import before_insert_email_queue
 
 # ---------------------------------------------------------------------------

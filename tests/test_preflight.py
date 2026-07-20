@@ -12,9 +12,7 @@ BR-TEST-004: runs without a Frappe bench (frappe is a MagicMock from conftest).
 from __future__ import annotations
 
 import pytest
-
 from cofferdam import loads_policy
-
 from cofferdam_app.policy import (
     Decision,
     PreflightResult,

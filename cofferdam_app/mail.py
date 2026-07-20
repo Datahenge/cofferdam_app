@@ -15,7 +15,6 @@ from email import policy as email_policy
 from typing import Any
 
 import frappe
-
 from cofferdam.mail import (
     check_recipient,
     decorate_body,
@@ -29,7 +28,7 @@ from cofferdam_app.policy import get_policy, site_policy_path
 _log = logging.getLogger("cofferdam_app")
 
 
-def before_insert_email_queue(doc: Any, method: Any = None) -> None:  # noqa: ANN401
+def before_insert_email_queue(doc: Any, method: Any = None) -> None:
     """Intercept Email Queue before insert and apply cofferdam policy.
 
     Wired via hooks.py doc_events. Frappe passes the Email Queue document and

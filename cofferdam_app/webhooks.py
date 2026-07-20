@@ -29,7 +29,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 import frappe
-
 from cofferdam.models import Environment
 
 from cofferdam_app.policy import get_policy, site_policy_path
@@ -42,7 +41,7 @@ _OPERATION = "deliver"
 _METHOD = "POST"
 
 
-def before_insert_webhook_request_log(doc: Any, method: Any = None) -> None:  # noqa: ANN401
+def before_insert_webhook_request_log(doc: Any, method: Any = None) -> None:
     """Intercept Webhook Request Log before insert and apply cofferdam policy.
 
     Wired via hooks.py doc_events. Uses the standard decision engine
