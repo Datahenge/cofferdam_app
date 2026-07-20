@@ -32,7 +32,7 @@ import frappe
 
 from cofferdam.models import Environment
 
-from cofferdam_app.policy import get_policy, policy_path
+from cofferdam_app.policy import get_policy, site_policy_path
 
 _log = logging.getLogger("cofferdam_app")
 
@@ -54,7 +54,7 @@ def before_insert_webhook_request_log(doc: Any, method: Any = None) -> None:  # 
     if policy is None:
         frappe.throw(
             f"cofferdam: No policy file found. "
-            f"Create {policy_path(site)} to configure webhook delivery for this environment."
+            f"Create {site_policy_path(site)} to configure webhook delivery for this environment."
         )
         return  # frappe.throw() always raises; satisfies mypy's narrowing
 

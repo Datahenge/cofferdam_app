@@ -17,7 +17,7 @@ import frappe
 from cofferdam.mail import check_recipient, decorate_email
 from cofferdam.models import Environment
 
-from cofferdam_app.policy import get_policy, policy_path
+from cofferdam_app.policy import get_policy, site_policy_path
 
 _log = logging.getLogger("cofferdam_app")
 
@@ -36,7 +36,7 @@ def before_insert_email_queue(doc: Any, method: Any = None) -> None:  # noqa: AN
     if policy is None:
         frappe.throw(
             f"cofferdam: No policy file found. "
-            f"Create {policy_path(site)} to configure outbound email for this environment."
+            f"Create {site_policy_path(site)} to configure outbound email for this environment."
         )
         return  # frappe.throw() always raises; satisfies mypy's narrowing
 

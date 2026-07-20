@@ -155,6 +155,42 @@ The next outbound call on that worker will reload from disk.
 
 ---
 
+## Guarding your own outbound HTTP calls
+
+The built-in hooks cover email and Frappe webhooks. For custom outbound HTTP
+(vendor APIs, workflow runners, etc.) use `preflight_http`, which owns the whole
+fail-closed pattern: it resolves the site policy path independent of the current
+working directory, loads the policy (blocking if missing or invalid), parses the
+host from the URL, evaluates the decision, and resolves the credential **only
+after** an allow. No secret value is ever logged or returned unless requested.
+
+```python
+from cofferdam_app.policy import preflight_http
+
+decision, token = preflight_http(
+    integration="windmill_fake",
+    kind="vendor_api",
+    operation="run_wait_result",
+    method="POST",
+    url=url,
+    credential="windmill_test_fake",
+    require_credential=True,   # resolve the secret only if allowed
+)
+
+if not decision.allowed:
+    frappe.throw(f"cofferdam: blocked ({decision.reason_code})")
+
+# token is the resolved secret; decision.as_log_dict() is redacted for ledgers.
+resp = httpx.post(url, headers={"Authorization": f"Bearer {token}"})
+```
+
+The return value also exposes `.host`, `.policy_path`, and `.policy_source`
+(`"frappe"` for a bench-absolute path or `"cwd_relative"` for the plain-library
+fallback) for ledger records and diagnostics. Pass `site=` to target a specific
+site outside a Frappe request.
+
+---
+
 ## What this covers
 
 | Outbound path | Intercepted? |
