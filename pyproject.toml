@@ -48,11 +48,14 @@ packages = ["cofferdam_app"]
 include = ["cofferdam_app", "LICENSE"]
 
 [dependency-groups]
+# Pinned exactly: ruff has no LTS and its lint/isort rules drift between 0.x
+# minors, so an unpinned floor made every install resolve differently. These
+# match the versions installed in the runtime bench env. Bump deliberately.
 dev = [
-    "pytest>=8.0",
-    "pytest-cov>=5.0",
-    "mypy>=1.10",
-    "ruff>=0.5",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "mypy==2.3.0",
+    "ruff==0.14.10",
     "frappe @ git+https://github.com/frappe/frappe@version-16",
 ]
 
