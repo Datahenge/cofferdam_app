@@ -1,0 +1,37 @@
+{
+ "app": "cofferdam_app",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "setting-gear",
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "home",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Cofferdam",
+   "link_to": "Cofferdam",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "list-alt",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Cofferdam Status",
+   "link_to": "cofferdam-status",
+   "link_type": "Page",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "module": "Cofferdam App",
+ "name": "Cofferdam",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Cofferdam"
+}

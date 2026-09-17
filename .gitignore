@@ -27,6 +27,9 @@ htmlcov/
 *.swp
 *.swo
 
+# Claude Code (local, machine-specific)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db

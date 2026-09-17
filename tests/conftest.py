@@ -13,7 +13,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Frappe stub — injected at module load time, before any cofferdam_app import
 # ---------------------------------------------------------------------------

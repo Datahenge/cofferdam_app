@@ -1,4 +1,4 @@
-# cofferdam-app
+# cofferdam_app
 
 A Frappe app that intercepts native outbound calls — email and webhooks — and
 routes them through the [cofferdam](https://github.com/datahenge/cofferdam)
@@ -8,7 +8,7 @@ policy engine before any data leaves the server.
 or Dev environment, the restored database contains live email addresses, webhook
 endpoints, and API credentials. Without a guard, the non-production environment
 behaves like Production — sending customer emails, firing real webhooks, and
-calling live APIs. `cofferdam-app` makes a local policy file — not the restored
+calling live APIs. `cofferdam_app` makes a local policy file — not the restored
 database — the authority over what is permitted to leave the server.
 
 ---
@@ -29,12 +29,9 @@ database — the authority over what is permitted to leave the server.
 ## Installation
 
 ```bash
-bench get-app https://github.com/datahenge/cofferdam-app --branch version-16
+bench get-app https://github.com/datahenge/cofferdam_app --branch version-16
 bench --site <your-site> install-app cofferdam_app
 ```
-
-`bench install-app` pulls `cofferdam` from PyPI automatically via
-`requirements.txt`. No separate `pip install` is needed.
 
 ---
 
@@ -52,7 +49,7 @@ This file lives on the **local filesystem** and is **not** restored from a
 database backup — that separation is what makes it trustworthy as a policy
 authority.
 
-If the file is missing when an outbound call is attempted, `cofferdam-app`
+If the file is missing when an outbound call is attempted, `cofferdam_app`
 **fails closed**: the call is blocked and an error is logged. Create the file
 before installing the app on any site where you need outbound calls to work.
 
@@ -96,7 +93,7 @@ allow_domains = ["yourcompany.com"]
 **Production: explicit pass-through**
 
 On Production the `environment = "production"` declaration causes
-`cofferdam-app` to pass all email and webhook calls through without
+`cofferdam_app` to pass all email and webhook calls through without
 modification. The policy file is still required; the app will block outbound
 calls on any site that lacks one.
 
@@ -158,22 +155,56 @@ The next outbound call on that worker will reload from disk.
 
 ---
 
+## Guarding your own outbound HTTP calls
+
+The built-in hooks cover email and Frappe webhooks. For custom outbound HTTP
+(vendor APIs, workflow runners, etc.) use `preflight_http`, which owns the whole
+fail-closed pattern: it resolves the site policy path independent of the current
+working directory, loads the policy (blocking if missing or invalid), parses the
+host from the URL, evaluates the decision, and resolves the credential **only
+after** an allow. No secret value is ever logged or returned unless requested.
+
+```python
+from cofferdam_app.policy import preflight_http
+
+decision, token = preflight_http(
+    integration="windmill_fake",
+    kind="vendor_api",
+    operation="run_wait_result",
+    method="POST",
+    url=url,
+    credential="windmill_test_fake",
+    require_credential=True,   # resolve the secret only if allowed
+)
+
+if not decision.allowed:
+    frappe.throw(f"cofferdam: blocked ({decision.reason_code})")
+
+# token is the resolved secret; decision.as_log_dict() is redacted for ledgers.
+resp = httpx.post(url, headers={"Authorization": f"Bearer {token}"})
+```
+
+The return value also exposes `.host`, `.policy_path`, and `.policy_source`
+(`"frappe"` for a bench-absolute path or `"cwd_relative"` for the plain-library
+fallback) for ledger records and diagnostics. Pass `site=` to target a specific
+site outside a Frappe request.
+
+---
+
 ## What this covers
 
 | Outbound path | Intercepted? |
 |---------------|:------------:|
 | `frappe.sendmail()` → Email Queue | ✅ |
 | Frappe Webhook DocType delivery → Webhook Request Log | ✅ |
-| ERPNext Slack Webhook URL | ❌ (planned, Q11) |
-| ERPNext payment gateways (Stripe, Razorpay, …) | ❌ (planned, Q11) |
-| ERPNext shipping carriers (FedEx, UPS, …) | ❌ (planned, Q11) |
-| ERPNext e-commerce connectors (Shopify, WooCommerce) | ❌ (planned, Q11) |
+| ERPNext Slack Webhook URL | ❌ (planned) |
+| ERPNext payment gateways (Stripe, Razorpay, …) | ❌ (planned) |
+| ERPNext shipping carriers (FedEx, UPS, …) | ❌ (planned) |
+| ERPNext e-commerce connectors (Shopify, WooCommerce) | ❌ (planned) |
 
 ERPNext-specific outbound paths make HTTP calls directly rather than through
-Frappe's generic Webhook mechanism. Support for them is tracked in
-[Q11](https://github.com/datahenge/cofferdam/blob/main/docs/15-open-questions.md).
-The `frappe.integrations.utils` Integration Request hook is the planned
-high-leverage interception point.
+Frappe's generic Webhook mechanism. The `frappe.integrations.utils` Integration
+Request hook is the planned high-leverage interception point for these.
 
 ---
 
@@ -182,7 +213,7 @@ high-leverage interception point.
 The test suite requires Python 3.14 and runs without a Frappe bench:
 
 ```bash
-make install   # one-time: installs deps to /tmp/cofferdam-app-dev-pkgs
+make install   # one-time: installs deps to /tmp/cofferdam_app-dev-pkgs
 make test      # pytest
 make lint      # ruff
 make typecheck # mypy --strict

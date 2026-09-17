@@ -6,10 +6,8 @@ BR-TEST-004: runs without a Frappe bench.
 from __future__ import annotations
 
 import pytest
-
 from cofferdam import loads_policy
 from cofferdam.errors import CofferdamError, PolicyFileNotFoundError
-
 from cofferdam_app.policy import get_policy, policy_path, reload_policy
 
 _STAGING_TOML = 'environment = "staging"\n'
