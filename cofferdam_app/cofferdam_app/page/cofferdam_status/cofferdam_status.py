@@ -14,7 +14,9 @@ library in order to report that fact. All library access goes through
 from __future__ import annotations
 
 import os
+from contextlib import redirect_stdout
 from datetime import UTC, datetime
+from io import StringIO
 from typing import Any
 
 import frappe
@@ -227,6 +229,90 @@ def validate_config() -> dict[str, Any]:
         return {"ok": False, "message": f"Validation failed: {exc}", "problems": problems}
 
     return {"ok": True, "message": f"Policy at {display_path} is valid (strict).", "problems": []}
+
+
+def _metadata_finding_text(finding: Any) -> str:
+    """Return one concise, stable line for a metadata-audit finding."""
+    location = finding.source_doctype
+    if finding.source_name:
+        location += f" {finding.source_name!r}"
+    if finding.owner_doctype:
+        location += f" on {finding.owner_doctype}"
+    if finding.fieldname:
+        location += f".{finding.fieldname}"
+    target = f"; target={finding.target!r}" if finding.target else ""
+    return f"- {location}: {finding.reason}{target}"
+
+
+def _metadata_audit_action(*, fix: bool) -> dict[str, Any]:
+    """Run an audit while retaining all emitted stdout for the status page."""
+    # Import here so this operational page remains importable if the audit
+    # module has an optional dependency in a future app version.
+    from cofferdam_app.metadata_integrity import MetadataIntegrityAuditor
+
+    output = StringIO()
+    try:
+        with redirect_stdout(output):
+            auditor = MetadataIntegrityAuditor()
+            if fix:
+                repairs = auditor.fix(
+                    dry_run=False,
+                    delete_custom_fields=True,
+                    delete_property_setters=True,
+                    commit=True,
+                )
+                deleted = sum(repair.action == "deleted" for repair in repairs)
+                print(
+                    f"Metadata repair complete: {len(repairs)} disposition(s), {deleted} deleted."
+                )
+                for repair in repairs:
+                    print(f"[{repair.action}] {_metadata_finding_text(repair.finding)[2:]}")
+                    print(f"  {repair.detail}")
+                return {
+                    "ok": True,
+                    "message": f"Metadata repair complete: {deleted} record(s) deleted.",
+                    "stdout": output.getvalue(),
+                    "deleted": deleted,
+                }
+
+            findings = auditor.check()
+            print(f"Metadata integrity check complete: {len(findings)} finding(s).")
+            for finding in findings:
+                print(_metadata_finding_text(finding))
+            return {
+                "ok": True,
+                "message": f"Metadata integrity check complete: {len(findings)} finding(s).",
+                "stdout": output.getvalue(),
+                "findings": len(findings),
+            }
+    except Exception as exc:
+        # Preserve any output produced before failure without exposing a stack
+        # trace in the Desk UI.
+        print(f"Metadata {'repair' if fix else 'check'} failed: {exc}", file=output)
+        return {
+            "ok": False,
+            "message": f"Metadata {'repair' if fix else 'check'} failed: {exc}",
+            "stdout": output.getvalue(),
+        }
+
+
+@frappe.whitelist()
+def metadata_check() -> dict[str, Any]:
+    """Run the read-only metadata integrity audit and return captured output."""
+    frappe.only_for(_ROLE)
+    return _metadata_audit_action(fix=False)
+
+
+@frappe.whitelist()
+def metadata_fix() -> dict[str, Any]:
+    """Delete only audited dangling Custom Fields and Property Setters.
+
+    The Desk client requires an explicit confirmation before invoking this
+    endpoint. The server intentionally fixes only the two metadata types that
+    ``MetadataIntegrityAuditor`` permits for automatic deletion.
+    """
+    frappe.only_for(_ROLE)
+    return _metadata_audit_action(fix=True)
 
 
 @frappe.whitelist()

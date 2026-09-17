@@ -93,17 +93,20 @@ class CofferdamStatus {
 		this.page.set_primary_action(__("Refresh"), () => this.refresh(), "refresh");
 		this.page.add_inner_button(__("Reload Policy"), () => this._reload_policy());
 		this.page.add_inner_button(__("Validate Config"), () => this._validate_config());
-		this.page.add_inner_button(__("Dry-run Email Check"), () => this._dry_run_email());
-		this.page.add_inner_button(__("Dry-run Webhook Check"), () => this._dry_run_webhook());
+		this.page.add_inner_button(__("Dry-run Email Check"), () => this._dry_run_email(), __("Dry-run Checks"));
+		this.page.add_inner_button(__("Dry-run Webhook Check"), () => this._dry_run_webhook(), __("Dry-run Checks"));
+		this.page.add_inner_button(__("Check"), () => this._metadata_check(), __("Metadata Check-Fix"));
+		this.page.add_inner_button(__("Fix"), () => this._metadata_fix(), __("Metadata Check-Fix"));
 	}
 
 	// ---- Message pane -------------------------------------------------------
 
-	log(severity, text) {
+	log(severity, text, show_alert = true) {
 		const ts = frappe.datetime.now_time();
 		this.messages.unshift({ severity, text, ts });
 		this.messages = this.messages.slice(0, 50);
 		this._render_messages();
+		if (!show_alert) return;
 		// Mirror to a transient toast so the action feels responsive.
 		const indicator = severity === "error" ? "red" : severity === "warn" ? "orange" : "green";
 		frappe.show_alert({ message: text, indicator });
@@ -352,17 +355,27 @@ class CofferdamStatus {
 
 	_dry_run_email() {
 		frappe.prompt(
-			[{ fieldname: "recipient", fieldtype: "Data", label: __("Recipient address"), reqd: 1 }],
+			[
+				{ fieldname: "recipient", fieldtype: "Data", label: __("Recipient address"), reqd: 1 },
+				{
+					fieldtype: "HTML",
+					options: `<p class="text-muted">${__(
+						"No email will be sent. This only checks how Cofferdam rules would handle the recipient."
+					)}</p>`,
+				},
+			],
 			(v) => {
 				frappe.call({
 					method: `${METHOD}.dry_run_email`,
 					args: { recipient: v.recipient },
 					callback: (r) => {
 						const m = r.message || {};
-						this.log(this._decision_severity(m), m.message || __("No result."));
+						const result = [m.message || __("No result.")];
 						if (m.ok && m.decorated_subject) {
-							this.log("info", `  ${__("Decorated subject")}: ${m.decorated_subject}`);
+							result.push(`${__("Decorated subject")}: ${m.decorated_subject}`);
 						}
+						this.log(this._decision_severity(m), result.join(" "), false);
+						this._show_result_output(__("Dry-run Email Check"), result.join("\n"), m.ok);
 					},
 				});
 			},
@@ -380,13 +393,49 @@ class CofferdamStatus {
 					args: { url: v.url },
 					callback: (r) => {
 						const m = r.message || {};
-						this.log(this._decision_severity(m), m.message || __("No result."));
+						const result = m.message || __("No result.");
+						this.log(this._decision_severity(m), result, false);
+						this._show_result_output(__("Dry-run Webhook Check"), result, m.ok);
 					},
 				});
 			},
 			__("Dry-run Webhook Check"),
 			__("Evaluate")
 		);
+	}
+
+	_metadata_check() {
+		this._run_metadata_action("metadata_check", __("Metadata Check"), "info");
+	}
+
+	_metadata_fix() {
+		frappe.confirm(
+			__("Fix will permanently delete only dangling Custom Fields and Property Setters found by the audit. Continue?"),
+			() => this._run_metadata_action("metadata_fix", __("Metadata Fix"), "warn"),
+			() => {}
+		);
+	}
+
+	_run_metadata_action(action, title, success_severity) {
+		frappe.call({
+			method: `${METHOD}.${action}`,
+			freeze: true,
+			freeze_message: action === "metadata_fix" ? __("Repairing metadata…") : __("Checking metadata…"),
+			callback: (r) => {
+				const m = r.message || {};
+				this.log(m.ok ? success_severity : "error", m.message || __("No result."));
+				this._show_result_output(title, m.stdout || m.message || __("No output."), m.ok);
+				if (m.ok && action === "metadata_fix") this.refresh();
+			},
+		});
+	}
+
+	_show_result_output(title, output, ok) {
+		frappe.msgprint({
+			title,
+			indicator: ok ? "green" : "red",
+			message: `<pre style="max-height: 420px; overflow: auto; white-space: pre-wrap; margin: 0;">${esc(output)}</pre>`,
+		});
 	}
 
 	_decision_severity(m) {
