@@ -52,6 +52,12 @@ def test_check_accepts_select_dynamic_link_driver_and_finds_actual_gaps() -> Non
                 {"name": "Purchase Receipt"},
                 {"name": "Example"},
             ],
+            "Accounting Dimension": [
+                {
+                    "name": "Legacy Dimension",
+                    "document_type": "Removed DocType",
+                }
+            ],
             "DocField": [
                 {
                     "name": "example-reference-type",
@@ -102,6 +108,7 @@ def test_check_accepts_select_dynamic_link_driver_and_finds_actual_gaps() -> Non
     findings = MetadataIntegrityAuditor(frappe).check()
 
     assert {(item.source_doctype, item.source_name) for item in findings} == {
+        ("Accounting Dimension", "Legacy Dimension"),
         ("DocField", "example-broken-link"),
         ("Custom Field", "Example-legacy_link"),
         ("Property Setter", "Purchase Receipt-old_field-hidden"),
@@ -112,6 +119,12 @@ def test_fix_is_dry_run_by_default_and_requires_explicit_deletion_flags() -> Non
     frappe = FakeFrappe(
         {
             "DocType": [{"name": "Example"}],
+            "Accounting Dimension": [
+                {
+                    "name": "Legacy Dimension",
+                    "document_type": "Removed DocType",
+                }
+            ],
             "DocField": [],
             "Custom Field": [
                 {
@@ -150,6 +163,7 @@ def test_fix_is_dry_run_by_default_and_requires_explicit_deletion_flags() -> Non
     )
     assert {repair.action for repair in repairs} == {"deleted"}
     assert frappe.deleted == [
+        ("Accounting Dimension", "Legacy Dimension"),
         ("Custom Field", "Example-legacy_link"),
         ("Property Setter", "Example-old_field-hidden"),
     ]

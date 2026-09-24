@@ -305,10 +305,10 @@ def metadata_check() -> dict[str, Any]:
 
 @frappe.whitelist()
 def metadata_fix() -> dict[str, Any]:
-    """Delete only audited dangling Custom Fields and Property Setters.
+    """Delete audited dangling Accounting Dimensions, Custom Fields, and Property Setters.
 
     The Desk client requires an explicit confirmation before invoking this
-    endpoint. The server intentionally fixes only the two metadata types that
+    endpoint. The server intentionally fixes only the metadata types that
     ``MetadataIntegrityAuditor`` permits for automatic deletion.
     """
     frappe.only_for(_ROLE)

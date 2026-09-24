@@ -410,7 +410,7 @@ class CofferdamStatus {
 
 	_metadata_fix() {
 		frappe.confirm(
-			__("Fix will permanently delete only dangling Custom Fields and Property Setters found by the audit. Continue?"),
+			__("Fix will permanently delete only dangling Accounting Dimensions, Custom Fields, and Property Setters found by the audit. Continue?"),
 			() => this._run_metadata_action("metadata_fix", __("Metadata Fix"), "warn"),
 			() => {}
 		);

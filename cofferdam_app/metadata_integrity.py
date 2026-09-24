@@ -40,7 +40,9 @@ class MetadataIntegrityAuditor:
 
     ``check()`` is read-only.  ``fix()`` is dry-run by default and never
     changes standard ``DocField`` records or business configuration such as a
-    Workflow or Report.  Deletion of a Custom Field or Property Setter requires
+    Workflow or Report. A dangling Accounting Dimension is also eligible for
+    deletion: it has no valid target and causes Desk to request that missing
+    DocType's metadata. Deletion of a Custom Field or Property Setter requires
     an explicit opt-in flag.
     """
 
@@ -48,6 +50,7 @@ class MetadataIntegrityAuditor:
         {"Link", "Table", "Table MultiSelect"}
     )
     _DOCUMENT_REFERENCE_SOURCES: ClassVar[dict[str, tuple[str, ...]]] = {
+        "Accounting Dimension": ("document_type",),
         "Assignment Rule": ("document_type",),
         "Auto Email Report": ("reference_doctype",),
         "Client Script": ("dt",),
@@ -198,7 +201,8 @@ class MetadataIntegrityAuditor:
     ) -> list[MetadataRepair]:
         """Apply explicitly authorised, narrowly safe repairs.
 
-        Only dangling Custom Fields and Property Setters are eligible.  Every
+        Dangling Accounting Dimensions, Custom Fields, and Property Setters are
+        eligible. Every
         other finding is reported as manual because deleting it could discard
         a Workflow, Report, or standard framework metadata.
         """
@@ -210,6 +214,8 @@ class MetadataIntegrityAuditor:
             key = (finding.source_doctype, finding.source_name or "")
 
             auto_delete = (
+                finding.source_doctype == "Accounting Dimension"
+            ) or (
                 finding.source_doctype == "Custom Field" and delete_custom_fields
             ) or (
                 finding.source_doctype == "Property Setter" and delete_property_setters
